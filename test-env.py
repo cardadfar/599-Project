@@ -1,11 +1,37 @@
 import numpy as np
 import env
 
+NUM_STEPS = 5
+
+def globalRewardFunc(actions):
+    
+    reward = 0
+    for a in actions:
+        if a == 'cooperate':
+            reward += 1
+    return reward
+
 def main():
-    testenv = env.Env([env.State(-1*(i+1)*np.arange(NUM_ACTIONS), lambda x: (i+1)*np.sum(x)) for i in range(NUM_STATES)])
-    print(testenv.getRewardVector(0, [0, 1]))
-    print(testenv.getRewardVector(1, [1, 1]))
-    return
+
+    actions = ['defect', 'cooperate']
+    localRewards = [8, 0]
+    agents = [env.CitizenAgent(actions, localRewards, i) for i in range(10)]
+    leader = env.LeaderAgent()
+    testEnv = env.Environment(agents, leader, globalRewardFunc)
+
+    for _ in range(NUM_STEPS):
+        actions = testEnv.getActions()
+        globalReward, penalty = testEnv.getRewards(actions)
+        testEnv.updateQ(globalReward, penalty)
+
+    testEnv.printAgents()
+
+    #test stage
+    actions = testEnv.getActions()
+    globalReward, _ = testEnv.getRewards(actions)
+    print("Global Reward: " + str(globalReward))
+
+    return 0
 
 if __name__ == "__main__":
     main()

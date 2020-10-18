@@ -1,42 +1,79 @@
 import numpy as np
 
-NUM_STATES = 2
-NUM_AGENTS = 2
-NUM_ACTIONS = 2
+UCB_INIT = 100
+EPS = 0.1
 
 class CitizenAgent():
 
-    def __init__(self):
-        
+    def __init__(self, actions, localRewards, agentIdx):
         # Actions:[Defect, Cooperate]
-        self.state_space = np.arange(NUM_STATES)
-        self.action_space = np.arange(NUM_ACTIONS)
-        self.mixed_strategy = np.zeros(NUM_ACTIONS)
-        self.mixed_strategy[0] = 1
+        self.num_actions = len(actions)
+        self.actions = actions
+        self.localRewards = localRewards
+        self.c = np.ones(self.num_actions)
+        self.n = 1
+        self.q = np.zeros(self.num_actions) + UCB_INIT
+        self.agentIdx = agentIdx
 
-        self.direct_reward = np.zeros(NUM_ACTIONS)
 
-class State():
-    def __init__(self, directRewards, globalFunc):
-        self.directReward = directRewards
-        self.globalFunction = globalFunc
+    def getAction(self):
 
-    def getDirectRewards(self):
-        return self.directReward
+        if(np.random.uniform() > EPS):
+            # exploit
+            self.recentAction = np.argmax(self.c * self.q)
+        else:
+            # explore
+            self.recentAction = np.random.randint(0, high=self.num_actions)
+        self.n += 1
+        self.c[self.recentAction] += 1
+        return self.actions[self.recentAction]
 
-    def getGlobalReward(self, actions):
-        return self.globalFunction(actions)
+    def updateQ(self, globalReward, penalty):
 
-class Env():
+        localRewards = self.localRewards[self.recentAction]
+        self.q[self.recentAction] = localRewards + globalReward + penalty
+
+    def printAgent(self):
+
+        print('-------------------------------')
+        print("Agent ID: " + str(self.agentIdx))
+        print("Q: " + str(self.q))
+        print("C: " + str(self.c - 1) + " out of " + str(self.n - 1) + " steps")
+
+
+
+class LeaderAgent():
+
+    def getPenalty(self, actions):
+        return 0
+
+
+class Environment():
     # stateMatrix is a list of state objects
-    def __init__(self, stateMatrix):
-        self.agents = [CitizenAgent() for _ in range(NUM_AGENTS)]
-        self.states = stateMatrix
+    def __init__(self, agents, leader, globalRewardFunc):
+        self.num_agents = len(agents)
+        self.agents = agents
+        self.leader = leader
+        self.globalRewardFunc = globalRewardFunc
 
-    def getRewardVector(self, state, actions):
-        stateDirectReward = self.states[state].getDirectRewards()
-        directReward = [stateDirectReward[i] for i in actions]
+    def getActions(self):
 
-        indirectReward = self.states[state].getGlobalReward(actions)
-        return directReward + indirectReward
+        actions = []
+        for agent in self.agents:
+            actions.append(agent.getAction())
+        return actions
+
+    def getRewards(self, actions):
+        globalReward = self.globalRewardFunc(actions)
+        penalty = self.leader.getPenalty(actions)
+        return globalReward, penalty
+
+    def updateQ(self, globalReward, penalty):
+        for agent in self.agents:
+            agent.updateQ(globalReward, penalty)
+
+    def printAgents(self):
+        for agent in self.agents:
+            agent.printAgent()
+
 
