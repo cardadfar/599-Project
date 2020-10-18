@@ -5,39 +5,38 @@ EPS = 0.1
 
 class CitizenAgent():
 
-    def __init__(self, actions, localRewards, agentIdx):
+    def __init__(self, localRewards, agentIdx):
         # Actions:[Defect, Cooperate]
-        self.num_actions = len(actions)
-        self.actions = actions
+        self.num_actions = len(localRewards)
         self.localRewards = localRewards
+        self.localPenalty = np.zeros(self.num_actions)
         self.c = np.ones(self.num_actions)
         self.n = 1
         self.q = np.zeros(self.num_actions) + UCB_INIT
         self.agentIdx = agentIdx
 
-
     def getAction(self):
 
         if(np.random.uniform() > EPS):
             # exploit
-            self.recentAction = np.argmax(self.c * self.q)
+            self.recentAction = np.argmax(self.q / self.c)
         else:
             # explore
             self.recentAction = np.random.randint(0, high=self.num_actions)
         self.n += 1
         self.c[self.recentAction] += 1
-        return self.actions[self.recentAction]
+        return self.recentAction
 
     def updateQ(self, globalReward, penalty):
 
         localRewards = self.localRewards[self.recentAction]
-        self.q[self.recentAction] = localRewards + globalReward + penalty
+        self.q[self.recentAction] += localRewards + globalReward + penalty
 
     def printAgent(self):
 
         print('-------------------------------')
         print("Agent ID: " + str(self.agentIdx))
-        print("Q: " + str(self.q))
+        print("Q: " + str(self.q/self.c))
         print("C: " + str(self.c - 1) + " out of " + str(self.n - 1) + " steps")
 
 
@@ -57,10 +56,7 @@ class Environment():
         self.globalRewardFunc = globalRewardFunc
 
     def getActions(self):
-
-        actions = []
-        for agent in self.agents:
-            actions.append(agent.getAction())
+        actions = [agent.getAction() for agent in self.agents]
         return actions
 
     def getRewards(self, actions):
@@ -73,7 +69,6 @@ class Environment():
             agent.updateQ(globalReward, penalty)
 
     def printAgents(self):
-        for agent in self.agents:
-            agent.printAgent()
+        for agent in self.agents: agent.printAgent()
 
 
