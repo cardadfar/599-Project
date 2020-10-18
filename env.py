@@ -5,9 +5,10 @@ EPS = 0.1
 
 class CitizenAgent():
 
-    def __init__(self, localRewards, agentIdx):
+    def __init__(self, actions, localRewards, agentIdx):
         # Actions:[Defect, Cooperate]
-        self.num_actions = len(localRewards)
+        self.num_actions = len(actions)
+        self.actions = actions
         self.localRewards = localRewards
         self.localPenalty = np.zeros(self.num_actions)
         self.c = np.ones(self.num_actions)
@@ -15,40 +16,69 @@ class CitizenAgent():
         self.q = np.zeros(self.num_actions) + UCB_INIT
         self.agentIdx = agentIdx
 
+
     def getAction(self):
 
         if(np.random.uniform() > EPS):
             # exploit
-            self.recentAction = np.argmax(self.q / self.c)
+            self.recentAction = np.argmax(self.q / self.c - self.localPenalty)
         else:
             # explore
             self.recentAction = np.random.randint(0, high=self.num_actions)
-        self.n += 1
         self.c[self.recentAction] += 1
-        return self.recentAction
+        self.n += 1
+        return self.actions[self.recentAction]
 
-    def updateQ(self, globalReward, penalty):
+    def updateQ(self, globalReward):
 
-        localRewards = self.localRewards[self.recentAction]
-        self.q[self.recentAction] += localRewards + globalReward + penalty
+        localReward = self.localRewards[self.recentAction]
+        localPenalty = self.localPenalty[self.recentAction]
+        self.q[self.recentAction] += localReward + globalReward - localPenalty
+
+    def getBestQ(self):
+        actualQ = self.q / self.c - self.localPenalty
+        return np.max(actualQ), np.argmax(actualQ)
+
+    def updatePenalty(self, actionIndex, penaltyAmount):
+        self.localPenalty[actionIndex] = penaltyAmount
 
     def printAgent(self):
 
         print('-------------------------------')
         print("Agent ID: " + str(self.agentIdx))
-        print("Q: " + str(self.q/self.c))
+        print("Q: " + str(self.q / self.c  - self.localPenalty))
         print("C: " + str(self.c - 1) + " out of " + str(self.n - 1) + " steps")
 
 
 
 class LeaderAgent():
 
-    def getPenalty(self, actions):
-        return 0
+    def __init__(self, agents):
+        self.agents = agents
+
+    def penalize(self):
+        
+        maxAgent = self.agents[0]
+        maxActionIdx = 0
+        maxQ = 0
+        qValues = []
+
+        for i in range(len(self.agents)):
+            q, qIdx = self.agents[i].getBestQ()
+            qValues.append(q)
+            if q > maxQ:
+                maxQ = q
+                maxAgent = self.agents[i]
+                maxActionIdx = qIdx
+
+        #print(qValues)
+        penalty = np.std(qValues)
+        #print(penalty)
+        maxAgent.updatePenalty(maxActionIdx, penalty)
 
 
 class Environment():
-    # stateMatrix is a list of state objects
+    
     def __init__(self, agents, leader, globalRewardFunc):
         self.num_agents = len(agents)
         self.agents = agents
@@ -56,19 +86,22 @@ class Environment():
         self.globalRewardFunc = globalRewardFunc
 
     def getActions(self):
-        actions = [agent.getAction() for agent in self.agents]
+
+        actions = []
+        for agent in self.agents:
+            actions.append(agent.getAction())
         return actions
 
     def getRewards(self, actions):
         globalReward = self.globalRewardFunc(actions)
-        penalty = self.leader.getPenalty(actions)
-        return globalReward, penalty
+        return globalReward
 
-    def updateQ(self, globalReward, penalty):
+    def updateQ(self, globalReward):
         for agent in self.agents:
-            agent.updateQ(globalReward, penalty)
+            agent.updateQ(globalReward)
 
     def printAgents(self):
-        for agent in self.agents: agent.printAgent()
+        for agent in self.agents:
+            agent.printAgent()
 
 

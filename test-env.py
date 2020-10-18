@@ -2,46 +2,41 @@ import numpy as np
 import env
 
 NUM_STEPS = 500
+NUM_EPOCHS = 50
+NUM_AGENTS = 10
 
 def globalRewardFunc(actions):
     
     reward = 0
-    for a in actions: reward += 2*a
+    for a in actions:
+        if a == 'cooperate':
+            reward += 1
     return reward
-
-def fairnessRewardFunc(actions):
-    avg = np.sum(actions) / len(actions)
-    return 0
-
-def thresholdingRewardFunc(actions):
-    return 0
-
-def testPrisonerGame():
-    return 0
-
-def testGradingGame():
-    return 0
-
-def fairnessGame():
-    return 0
 
 def main():
 
-    localRewards = [9, 0]
-    agents = [env.CitizenAgent(localRewards, i) for i in range(10)]
-    leader = env.LeaderAgent()
+    agents = []
+    for i in range(NUM_AGENTS):
+        actions = ['defect', 'cooperate']
+        localRewards = [np.random.randint(0,high=100), np.random.randint(0,high=100)]
+        agent = env.CitizenAgent(actions, localRewards, i)
+        agents.append(agent)
+    leader = env.LeaderAgent(agents)
     testEnv = env.Environment(agents, leader, globalRewardFunc)
 
-    for _ in range(NUM_STEPS):
-        actions = testEnv.getActions()
-        globalReward, penalty = testEnv.getRewards(actions)
-        testEnv.updateQ(globalReward, penalty)
+    for _ in range(NUM_EPOCHS):
+        for _ in range(NUM_STEPS):
+            actions = testEnv.getActions()
+            globalReward = testEnv.getRewards(actions)
+            testEnv.updateQ(globalReward)
+
+        leader.penalize()
 
     testEnv.printAgents()
 
     #test stage
     actions = testEnv.getActions()
-    globalReward, _ = testEnv.getRewards(actions)
+    globalReward = testEnv.getRewards(actions)
     print("Global Reward: " + str(globalReward))
 
     return 0
